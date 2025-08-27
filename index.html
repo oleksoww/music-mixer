@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Vocal/Beat Remover & Mixer (GitHub Pages)</title>
+<title>Vocal / Beat Remover & Mixer</title>
 <style>
 body{font-family:Arial,sans-serif;background:#121212;color:#fff;text-align:center;padding:20px;}
 input,button{margin:10px;padding:10px;border-radius:6px;border:none;}
@@ -16,93 +16,32 @@ audio{width:80%;margin-top:15px;}
 <h1>🎶 Vocal / Beat Remover & Mixer</h1>
 <p>Strona działa w przeglądarce. Oddziel wokal, beat i miksuj.</p>
 
+<h2>1) Wgraj utwór</h2>
 <input type="file" id="songFile" accept="audio/*"><br>
-<button id="btnInstrumental" disabled>Usuń wokal → pobierz instrumental</button>
-<button id="btnVocals" disabled>Usuń beat → pobierz vocals</button>
+<button id="btnInstrumental" disabled>Usuń wokal → instrumental</button>
+<button id="btnVocals" disabled>Usuń beat → vocals</button><br>
 <audio id="previewOriginal" controls hidden></audio>
 
 <hr>
-<h2>Miksowanie</h2>
+<h2>2) Miksowanie</h2>
 <input type="file" id="vocalFile" accept="audio/*"><br>
 <input type="file" id="beatFile" accept="audio/*"><br>
 <label>Głośność wokalu: <input type="range" id="gainVocal" min="0" max="2" step="0.01" value="1"></label><br>
 <label>Głośność beatu: <input type="range" id="gainBeat" min="0" max="2" step="0.01" value="1"></label><br>
 <button id="btnMakeMix" disabled>Pobierz mix.wav</button>
-<button id="btnPreviewMix" disabled>Podgląd miksu ▶</button>
+<button id="btnPreviewMix" disabled>Podgląd miksu ▶</button><br>
 <audio id="previewMix" controls hidden></audio>
 
 <script src="https://cdn.jsdelivr.net/npm/vocal-remover"></script>
 <script>
+const audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+
+// --- ELEMENTY ---
 const songFile = document.getElementById('songFile');
 const btnInstr = document.getElementById('btnInstrumental');
 const btnVoc = document.getElementById('btnVocals');
 const previewOriginal = document.getElementById('previewOriginal');
 
-let loadedSongBuf = null;
-const audioCtx = new (window.AudioContext||window.webkitAudioContext)();
-
-songFile.addEventListener('change', async ()=>{
-    if(!songFile.files[0]) return;
-    const file = songFile.files[0];
-    const arrayBuffer = await file.arrayBuffer();
-    loadedSongBuf = await audioCtx.decodeAudioData(arrayBuffer.slice(0));
-    btnInstr.disabled = false;
-    btnVoc.disabled = false;
-    previewOriginal.src = URL.createObjectURL(file);
-    previewOriginal.hidden = false;
-});
-
-async function processVocal(remove=true){
-    if(!loadedSongBuf) return alert("Wgraj plik!");
-    const offline = new OfflineAudioContext(2, loadedSongBuf.length, loadedSongBuf.sampleRate);
-    const src = offline.createBufferSource();
-    src.buffer = loadedSongBuf;
-    src.connect(offline.destination);
-    src.start();
-    const rendered = await offline.startRendering();
-    // VocalRemoverJS
-    const vr = new VocalRemover();
-    const result = await vr.separate(rendered, { vocals: true });
-    const outBuffer = remove ? result.instrumental : result.vocals;
-    downloadAudioBuffer(outBuffer, remove?"instrumental.wav":"vocals.wav");
-}
-
-btnInstr.addEventListener('click', ()=>processVocal(true));
-btnVoc.addEventListener('click', ()=>processVocal(false));
-
-function downloadAudioBuffer(buffer, filename){
-    const numCh = buffer.numberOfChannels;
-    const sr = buffer.sampleRate;
-    const L = buffer.getChannelData(0);
-    const R = numCh>1?buffer.getChannelData(1):buffer.getChannelData(0);
-    const interleave = new Float32Array(L.length*2);
-    for(let i=0;i<L.length;i++){interleave[i*2]=L[i];interleave[i*2+1]=R[i];}
-    const pcm16 = new Int16Array(interleave.length);
-    for(let i=0;i<interleave.length;i++){let s=Math.max(-1,Math.min(1,interleave[i])); pcm16[i]=s<0?s*0x8000:s*0x7FFF;}
-    const byteRate = sr*2*numCh;
-    const wav = new ArrayBuffer(44+pcm16.byteLength);
-    const view = new DataView(wav);
-    let offset=0;
-    function writeStr(o,s){for(let i=0;i<s.length;i++)view.setUint8(o+i,s.charCodeAt(i));}
-    writeStr(offset,"RIFF"); offset+=4;
-    view.setUint32(offset,36+pcm16.byteLength,true); offset+=4;
-    writeStr(offset,"WAVE"); offset+=4;
-    writeStr(offset,"fmt "); offset+=4;
-    view.setUint32(offset,16,true); offset+=4;
-    view.setUint16(offset,1,true); offset+=2;
-    view.setUint16(offset,numCh,true); offset+=2;
-    view.setUint32(offset,sr,true); offset+=4;
-    view.setUint32(offset,byteRate,true); offset+=4;
-    view.setUint16(offset,numCh*2,true); offset+=2;
-    view.setUint16(offset,16,true); offset+=2;
-    writeStr(offset,"data"); offset+=4;
-    view.setUint32(offset,pcm16.byteLength,true); offset+=4;
-    new Int16Array(wav,44).set(pcm16);
-    const blob = new Blob([wav],{type:"audio/wav"});
-    const a = document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=filename; a.click(); URL.revokeObjectURL(a.href);
-}
-
-// --- MIX ---
 const vocalFile = document.getElementById('vocalFile');
 const beatFile = document.getElementById('beatFile');
 const btnMakeMix = document.getElementById('btnMakeMix');
@@ -111,46 +50,127 @@ const previewMix = document.getElementById('previewMix');
 const gainVocal = document.getElementById('gainVocal');
 const gainBeat = document.getElementById('gainBeat');
 
-let loadedVocal = null, loadedBeat = null;
+// --- BUFFERY ---
+let loadedSongBuf = null;
+let loadedVocal = null;
+let loadedBeat = null;
 
-async function loadFileToBuffer(file){const arr=await file.arrayBuffer();return await audioCtx.decodeAudioData(arr.slice(0));}
-
-vocalFile.addEventListener('change',async()=>{if(!vocalFile.files[0])return; loadedVocal=await loadFileToBuffer(vocalFile.files[0]); checkMix();});
-beatFile.addEventListener('change',async()=>{if(!beatFile.files[0])return; loadedBeat=await loadFileToBuffer(beatFile.files[0]); checkMix();});
-
-function checkMix(){btnMakeMix.disabled = !(loadedVocal&&loadedBeat); btnPreviewMix.disabled=!(loadedVocal&&loadedBeat);}
-
-async function makeMix(){ 
-  if(!loadedVocal||!loadedBeat) return;
-  const len = Math.max(loadedVocal.length, loadedBeat.length);
-  const out = audioCtx.createBuffer(2,len,audioCtx.sampleRate);
-  for(let ch=0;ch<2;ch++){
-    const dV = loadedVocal.getChannelData(ch);
-    const dB = loadedBeat.getChannelData(ch);
-    const o = out.getChannelData(ch);
-    for(let i=0;i<len;i++){
-      const v = i<dV.length?dV[i]*gainVocal.value:0;
-      const b = i<dB.length?dB[i]*gainBeat.value:0;
-      o[i]=Math.tanh(v+b);
-    }
-  }
-  return out;
+// --- FUNKCJE ---
+async function decodeFile(file){
+    const arr = await file.arrayBuffer();
+    return await audioCtx.decodeAudioData(arr.slice(0));
 }
 
-btnMakeMix.addEventListener('click',async()=>{
-  const mix = await makeMix();
-  downloadAudioBuffer(mix,'mix.wav');
+async function bufferToBlob(buffer){
+    const numCh = buffer.numberOfChannels;
+    const sr = buffer.sampleRate;
+    const L = buffer.getChannelData(0);
+    const R = numCh>1?buffer.getChannelData(1):L;
+    const interleave = new Float32Array(L.length*2);
+    for(let i=0;i<L.length;i++){interleave[i*2]=L[i]; interleave[i*2+1]=R[i];}
+    const pcm16 = new Int16Array(interleave.length);
+    for(let i=0;i<interleave.length;i++){let s=Math.max(-1,Math.min(1,interleave[i])); pcm16[i]=s<0?s*0x8000:s*0x7FFF;}
+    const byteRate = sr*2*numCh;
+    const wav = new ArrayBuffer(44 + pcm16.byteLength);
+    const view = new DataView(wav);
+    let offset=0;
+    function wS(o,s){for(let i=0;i<s.length;i++)view.setUint8(o+i,s.charCodeAt(i));}
+    wS(offset,"RIFF"); offset+=4;
+    view.setUint32(offset,36+pcm16.byteLength,true); offset+=4;
+    wS(offset,"WAVE"); offset+=4;
+    wS(offset,"fmt "); offset+=4;
+    view.setUint32(offset,16,true); offset+=4;
+    view.setUint16(offset,1,true); offset+=2;
+    view.setUint16(offset,numCh,true); offset+=2;
+    view.setUint32(offset,sr,true); offset+=4;
+    view.setUint32(offset,byteRate,true); offset+=4;
+    view.setUint16(offset,numCh*2,true); offset+=2;
+    view.setUint16(offset,16,true); offset+=2;
+    wS(offset,"data"); offset+=4;
+    view.setUint32(offset,pcm16.byteLength,true); offset+=4;
+    new Int16Array(wav,44).set(pcm16);
+    return new Blob([wav],{type:"audio/wav"});
+}
+
+async function downloadBuffer(buffer, filename){
+    const blob = await bufferToBlob(buffer);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+}
+
+async function playBuffer(buffer, player){
+    const blob = await bufferToBlob(buffer);
+    const url = URL.createObjectURL(blob);
+    player.src = url;
+    player.hidden=false;
+    player.play();
+}
+
+// --- UTWÓR GŁÓWNY ---
+songFile.addEventListener('change', async ()=>{
+    if(!songFile.files[0]) return;
+    loadedSongBuf = await decodeFile(songFile.files[0]);
+    btnInstr.disabled=false;
+    btnVoc.disabled=false;
+    previewOriginal.src = URL.createObjectURL(songFile.files[0]);
+    previewOriginal.hidden=false;
 });
 
-btnPreviewMix.addEventListener('click',async()=>{
-  const mix = await makeMix();
-  const offline = audioCtx.createBufferSource();
-  offline.buffer = mix;
-  previewMix.src = URL.createObjectURL(await bufferToBlob(mix));
-  previewMix.hidden=false;
+// --- INSTRUMENTAL / VOCALS ---
+btnInstr.addEventListener('click', async ()=>{
+    if(!loadedSongBuf) return alert("Wgraj plik!");
+    const vr = new VocalRemover();
+    const result = await vr.separate(loadedSongBuf,{vocals:true});
+    await downloadBuffer(result.instrumental,"instrumental.wav");
+    await playBuffer(result.instrumental,previewOriginal);
 });
 
-async function bufferToBlob(buffer){const numCh = buffer.numberOfChannels; const sr=buffer.sampleRate; const L=buffer.getChannelData(0); const R=numCh>1?buffer.getChannelData(1):L; const interleave = new Float32Array(L.length*2); for(let i=0;i<L.length;i++){interleave[i*2]=L[i];interleave[i*2+1]=R[i];} const pcm16=new Int16Array(interleave.length); for(let i=0;i<interleave.length;i++){let s=Math.max(-1,Math.min(1,interleave[i])); pcm16[i]=s<0?s*0x8000:s*0x7FFF;} const byteRate=sr*2*numCh; const wav=new ArrayBuffer(44+pcm16.byteLength); const view=new DataView(wav); let offset=0; function wS(o,s){for(let i=0;i<s.length;i++)view.setUint8(o+i,s.charCodeAt(i));} wS(offset,"RIFF"); offset+=4; view.setUint32(offset,36+pcm16.byteLength,true); offset+=4; wS(offset,"WAVE"); offset+=4; wS(offset,"fmt "); offset+=4; view.setUint32(offset,16,true); offset+=4; view.setUint16(offset,1,true); offset+=2; view.setUint16(offset,numCh,true); offset+=2; view.setUint32(offset,sr,true); offset+=4; view.setUint32(offset,byteRate,true); offset+=4; view.setUint16(offset,numCh*2,true); offset+=2; view.setUint16(offset,16,true); offset+=2; wS(offset,"data"); offset+=4; view.setUint32(offset,pcm16.byteLength,true); offset+=4; new Int16Array(wav,44).set(pcm16); return new Blob([wav],{type:"audio/wav"});}
+btnVoc.addEventListener('click', async ()=>{
+    if(!loadedSongBuf) return alert("Wgraj plik!");
+    const vr = new VocalRemover();
+    const result = await vr.separate(loadedSongBuf,{vocals:true});
+    await downloadBuffer(result.vocals,"vocals.wav");
+    await playBuffer(result.vocals,previewOriginal);
+});
+
+// --- MIX ---
+vocalFile.addEventListener('change', async()=>{if(!vocalFile.files[0]) return; loadedVocal = await decodeFile(vocalFile.files[0]); checkMix();});
+beatFile.addEventListener('change', async()=>{if(!beatFile.files[0]) return; loadedBeat = await decodeFile(beatFile.files[0]); checkMix();});
+
+function checkMix(){ btnMakeMix.disabled = !(loadedVocal&&loadedBeat); btnPreviewMix.disabled = !(loadedVocal&&loadedBeat); }
+
+async function makeMixBuffer(){
+    if(!loadedVocal||!loadedBeat) return null;
+    const len = Math.max(loadedVocal.length, loadedBeat.length);
+    const out = audioCtx.createBuffer(2,len,audioCtx.sampleRate);
+    for(let ch=0;ch<2;ch++){
+        const dV = loadedVocal.getChannelData(ch);
+        const dB = loadedBeat.getChannelData(ch);
+        const o = out.getChannelData(ch);
+        for(let i=0;i<len;i++){
+            const v = i<dV.length ? dV[i]*gainVocal.value : 0;
+            const b = i<dB.length ? dB[i]*gainBeat.value : 0;
+            o[i] = Math.tanh(v+b); // soft clip
+        }
+    }
+    return out;
+}
+
+btnMakeMix.addEventListener('click', async()=>{
+    const mix = await makeMixBuffer();
+    if(mix) await downloadBuffer(mix,"mix.wav");
+});
+
+btnPreviewMix.addEventListener('click', async()=>{
+    const mix = await makeMixBuffer();
+    if(mix) await playBuffer(mix,previewMix);
+});
 </script>
 </body>
 </html>
