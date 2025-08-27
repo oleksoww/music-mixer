@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🎶 Music Mixer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>🎶 Music Vocal & Beat Mixer</h1>
+  
+  <p>Wgraj plik, usuń wokal lub beat, a potem miksuj podkład z wokalem.</p>
+
+  <input type="file" id="fileInput" accept="audio/*"><br>
+
+  <button onclick="removeVocal()">Usuń wokal</button>
+  <button onclick="removeBeat()">Usuń beat</button>
+  <button onclick="mixTracks()">Miksuj wokal z beatem</button>
+
+  <div id="status">Gotowe do pracy!</div>
+  <div id="player"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vocal-remover"></script>
+  <script src="script.js"></script>
+</body>
+</html>
