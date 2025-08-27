@@ -1,422 +1,156 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>🎶 Vocal / Beat Remover & Mixer (GitHub Pages)</title>
-  <style>
-    :root { --bg:#0b1020; --card:#121a36; --text:#e9ecf5; --muted:#9aa6ce; --accent:#7aa2f7; }
-    *{box-sizing:border-box}
-    body{margin:0; font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,Arial; background:var(--bg); color:var(--text);}
-    .wrap{max-width:980px; margin:0 auto; padding:32px 16px;}
-    h1{font-size:28px; margin:0 0 16px}
-    p.lead{color:var(--muted); margin:0 0 24px}
-    .card{background:var(--card); border:1px solid rgba(255,255,255,.06); border-radius:16px; padding:20px; margin:16px 0; box-shadow:0 8px 30px rgba(0,0,0,.25)}
-    .grid{display:grid; gap:16px}
-    @media(min-width:860px){ .grid{grid-template-columns:1fr 1fr} }
-    label{display:block; font-weight:600; margin-bottom:8px}
-    input[type="file"], input[type="number"], input[type="range"]{width:100%}
-    input[type="file"]{padding:10px; background:#0f1730; color:var(--muted); border:1px dashed rgba(255,255,255,.18); border-radius:12px}
-    .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
-    .btn{appearance:none; border:0; background:var(--accent); color:#0b1020; font-weight:800; padding:12px 16px; border-radius:12px; cursor:pointer}
-    .btn.secondary{background:#2c3964; color:var(--text)}
-    .btn:disabled{opacity:.6; cursor:not-allowed}
-    .mini{font-size:12px; color:var(--muted)}
-    .status{margin-top:8px; color:var(--muted)}
-    .audio{width:100%}
-    .pill{display:inline-block; background:#1a244a; border:1px solid rgba(255,255,255,.1); color:var(--muted); padding:6px 10px; border-radius:999px; font-size:12px; margin-left:8px}
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vocal/Beat Remover & Mixer (GitHub Pages)</title>
+<style>
+body{font-family:Arial,sans-serif;background:#121212;color:#fff;text-align:center;padding:20px;}
+input,button{margin:10px;padding:10px;border-radius:6px;border:none;}
+button{cursor:pointer;background:#6200ea;color:white;font-weight:bold;}
+button:disabled{opacity:0.5;cursor:not-allowed;}
+audio{width:80%;margin-top:15px;}
+</style>
 </head>
 <body>
-  <div class="wrap">
-    <h1>🎶 Vocal / Beat Remover & Mixer</h1>
-    <p class="lead">Działa w przeglądarce (GitHub Pages). <span class="pill">bez backendu</span> <span class="pill">offline</span></p>
+<h1>🎶 Vocal / Beat Remover & Mixer</h1>
+<p>Strona działa w przeglądarce. Oddziel wokal, beat i miksuj.</p>
 
-    <div class="card">
-      <h2>1) Wgraj utwór źródłowy</h2>
-      <label for="songFile">Plik audio (stereo zalecane)</label>
-      <input id="songFile" type="file" accept="audio/*" />
-      <div class="row" style="margin-top:12px">
-        <button id="btnInstrumental" class="btn" disabled>Usuń wokal → pobierz <b>instrumental.wav</b></button>
-        <button id="btnVocals" class="btn secondary" disabled>Usuń beat → pobierz <b>vocals.wav</b></button>
-      </div>
-      <div class="status" id="statusMain">Wybierz plik, a przyciski się aktywują.</div>
-      <audio id="previewOriginal" class="audio" controls style="margin-top:10px" hidden></audio>
-    </div>
+<input type="file" id="songFile" accept="audio/*"><br>
+<button id="btnInstrumental" disabled>Usuń wokal → pobierz instrumental</button>
+<button id="btnVocals" disabled>Usuń beat → pobierz vocals</button>
+<audio id="previewOriginal" controls hidden></audio>
 
-    <div class="card">
-      <h2>2) Połącz wokal z innym beatem</h2>
-      <div class="grid">
-        <div>
-          <label for="vocalFile">Wokal (np. z kroku 1)</label>
-          <input id="vocalFile" type="file" accept="audio/*" />
-        </div>
-        <div>
-          <label for="beatFile">Beat / instrumental</label>
-          <input id="beatFile" type="file" accept="audio/*" />
-        </div>
-      </div>
+<hr>
+<h2>Miksowanie</h2>
+<input type="file" id="vocalFile" accept="audio/*"><br>
+<input type="file" id="beatFile" accept="audio/*"><br>
+<label>Głośność wokalu: <input type="range" id="gainVocal" min="0" max="2" step="0.01" value="1"></label><br>
+<label>Głośność beatu: <input type="range" id="gainBeat" min="0" max="2" step="0.01" value="1"></label><br>
+<button id="btnMakeMix" disabled>Pobierz mix.wav</button>
+<button id="btnPreviewMix" disabled>Podgląd miksu ▶</button>
+<audio id="previewMix" controls hidden></audio>
 
-      <div class="grid" style="margin-top:12px">
-        <div>
-          <label>Głośność wokalu <span id="gainVocalVal" class="mini">1.00</span></label>
-          <input id="gainVocal" type="range" min="0" max="2" step="0.01" value="1" />
-        </div>
-        <div>
-          <label>Głośność beatu <span id="gainBeatVal" class="mini">1.00</span></label>
-          <input id="gainBeat" type="range" min="0" max="2" step="0.01" value="1" />
-        </div>
-      </div>
+<script src="https://cdn.jsdelivr.net/npm/vocal-remover"></script>
+<script>
+const songFile = document.getElementById('songFile');
+const btnInstr = document.getElementById('btnInstrumental');
+const btnVoc = document.getElementById('btnVocals');
+const previewOriginal = document.getElementById('previewOriginal');
 
-      <div class="grid" style="margin-top:12px">
-        <div>
-          <label>Przesunięcie wokalu (ms)</label>
-          <input id="offsetVocalMs" type="number" value="0" step="10" />
-        </div>
-        <div>
-          <label>Przesunięcie beatu (ms)</label>
-          <input id="offsetBeatMs" type="number" value="0" step="10" />
-        </div>
-      </div>
+let loadedSongBuf = null;
+const audioCtx = new (window.AudioContext||window.webkitAudioContext)();
 
-      <div class="row" style="margin-top:12px">
-        <button id="btnMakeMix" class="btn" disabled>Render miks → pobierz <b>mix.wav</b></button>
-        <button id="btnPreviewMix" class="btn secondary" disabled>Podgląd miksu ▶</button>
-      </div>
-      <div class="status" id="statusMix">Wgraj oba pliki, aby włączyć mix.</div>
-      <audio id="previewMix" class="audio" controls style="margin-top:10px" hidden></audio>
-    </div>
+songFile.addEventListener('change', async ()=>{
+    if(!songFile.files[0]) return;
+    const file = songFile.files[0];
+    const arrayBuffer = await file.arrayBuffer();
+    loadedSongBuf = await audioCtx.decodeAudioData(arrayBuffer.slice(0));
+    btnInstr.disabled = false;
+    btnVoc.disabled = false;
+    previewOriginal.src = URL.createObjectURL(file);
+    previewOriginal.hidden = false;
+});
 
-    <div class="card">
-      <h2>Jak to działa? (skrót)</h2>
-      <ul>
-        <li><b>Instrumental</b>: usuwanie środka (center-cancel): odejmujemy kanały L/R → zostaje głównie to, co nie jest wyśrodkowane (często podkład).</li>
-        <li><b>Wokal</b>: bierzemy kanał środkowy (L+R)/2 i filtr pasmowy (głosy ~120–8000 Hz), plus normalizacja.</li>
-        <li><b>Miks</b>: resampling do 44.1 kHz, dopasowanie długości, ciche mieszanie i limiter soft-clip, eksport do WAV.</li>
-      </ul>
-      <p class="mini">Jakość zależy od miksu oryginału. Do perfekcyjnej separacji potrzebne są modele AI po stronie serwera.</p>
-    </div>
-  </div>
+async function processVocal(remove=true){
+    if(!loadedSongBuf) return alert("Wgraj plik!");
+    const offline = new OfflineAudioContext(2, loadedSongBuf.length, loadedSongBuf.sampleRate);
+    const src = offline.createBufferSource();
+    src.buffer = loadedSongBuf;
+    src.connect(offline.destination);
+    src.start();
+    const rendered = await offline.startRendering();
+    // VocalRemoverJS
+    const vr = new VocalRemover();
+    const result = await vr.separate(rendered, { vocals: true });
+    const outBuffer = remove ? result.instrumental : result.vocals;
+    downloadAudioBuffer(outBuffer, remove?"instrumental.wav":"vocals.wav");
+}
 
-  <script>
-    // === USTAWIENIA / NARZĘDZIA ===
-    const TARGET_SR = 44100; // docelowa częstotliwość próbkowania do renderów WAV
-    let liveCtx;
+btnInstr.addEventListener('click', ()=>processVocal(true));
+btnVoc.addEventListener('click', ()=>processVocal(false));
 
-    function getAudioCtx() {
-      if (!liveCtx) liveCtx = new (window.AudioContext || window.webkitAudioContext)();
-      return liveCtx;
+function downloadAudioBuffer(buffer, filename){
+    const numCh = buffer.numberOfChannels;
+    const sr = buffer.sampleRate;
+    const L = buffer.getChannelData(0);
+    const R = numCh>1?buffer.getChannelData(1):buffer.getChannelData(0);
+    const interleave = new Float32Array(L.length*2);
+    for(let i=0;i<L.length;i++){interleave[i*2]=L[i];interleave[i*2+1]=R[i];}
+    const pcm16 = new Int16Array(interleave.length);
+    for(let i=0;i<interleave.length;i++){let s=Math.max(-1,Math.min(1,interleave[i])); pcm16[i]=s<0?s*0x8000:s*0x7FFF;}
+    const byteRate = sr*2*numCh;
+    const wav = new ArrayBuffer(44+pcm16.byteLength);
+    const view = new DataView(wav);
+    let offset=0;
+    function writeStr(o,s){for(let i=0;i<s.length;i++)view.setUint8(o+i,s.charCodeAt(i));}
+    writeStr(offset,"RIFF"); offset+=4;
+    view.setUint32(offset,36+pcm16.byteLength,true); offset+=4;
+    writeStr(offset,"WAVE"); offset+=4;
+    writeStr(offset,"fmt "); offset+=4;
+    view.setUint32(offset,16,true); offset+=4;
+    view.setUint16(offset,1,true); offset+=2;
+    view.setUint16(offset,numCh,true); offset+=2;
+    view.setUint32(offset,sr,true); offset+=4;
+    view.setUint32(offset,byteRate,true); offset+=4;
+    view.setUint16(offset,numCh*2,true); offset+=2;
+    view.setUint16(offset,16,true); offset+=2;
+    writeStr(offset,"data"); offset+=4;
+    view.setUint32(offset,pcm16.byteLength,true); offset+=4;
+    new Int16Array(wav,44).set(pcm16);
+    const blob = new Blob([wav],{type:"audio/wav"});
+    const a = document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=filename; a.click(); URL.revokeObjectURL(a.href);
+}
+
+// --- MIX ---
+const vocalFile = document.getElementById('vocalFile');
+const beatFile = document.getElementById('beatFile');
+const btnMakeMix = document.getElementById('btnMakeMix');
+const btnPreviewMix = document.getElementById('btnPreviewMix');
+const previewMix = document.getElementById('previewMix');
+const gainVocal = document.getElementById('gainVocal');
+const gainBeat = document.getElementById('gainBeat');
+
+let loadedVocal = null, loadedBeat = null;
+
+async function loadFileToBuffer(file){const arr=await file.arrayBuffer();return await audioCtx.decodeAudioData(arr.slice(0));}
+
+vocalFile.addEventListener('change',async()=>{if(!vocalFile.files[0])return; loadedVocal=await loadFileToBuffer(vocalFile.files[0]); checkMix();});
+beatFile.addEventListener('change',async()=>{if(!beatFile.files[0])return; loadedBeat=await loadFileToBuffer(beatFile.files[0]); checkMix();});
+
+function checkMix(){btnMakeMix.disabled = !(loadedVocal&&loadedBeat); btnPreviewMix.disabled=!(loadedVocal&&loadedBeat);}
+
+async function makeMix(){ 
+  if(!loadedVocal||!loadedBeat) return;
+  const len = Math.max(loadedVocal.length, loadedBeat.length);
+  const out = audioCtx.createBuffer(2,len,audioCtx.sampleRate);
+  for(let ch=0;ch<2;ch++){
+    const dV = loadedVocal.getChannelData(ch);
+    const dB = loadedBeat.getChannelData(ch);
+    const o = out.getChannelData(ch);
+    for(let i=0;i<len;i++){
+      const v = i<dV.length?dV[i]*gainVocal.value:0;
+      const b = i<dB.length?dB[i]*gainBeat.value:0;
+      o[i]=Math.tanh(v+b);
     }
-    async function decodeFileToAudioBuffer(file) {
-      const ctx = getAudioCtx();
-      const arr = await file.arrayBuffer();
-      return await ctx.decodeAudioData(arr.slice(0));
-    }
-    async function resampleBufferToSR(buffer, targetSR = TARGET_SR) {
-      if (buffer.sampleRate === targetSR) return buffer;
-      const offline = new OfflineAudioContext(buffer.numberOfChannels, Math.ceil(buffer.duration * targetSR), targetSR);
-      const src = offline.createBufferSource();
-      src.buffer = buffer;
-      src.connect(offline.destination);
-      src.start();
-      return await offline.startRendering();
-    }
-    function ensureStereo(buffer) {
-      if (buffer.numberOfChannels === 2) return buffer;
-      const ctx = getAudioCtx();
-      const stereo = ctx.createBuffer(2, buffer.length, buffer.sampleRate);
-      const mono = buffer.getChannelData(0);
-      stereo.getChannelData(0).set(mono);
-      stereo.getChannelData(1).set(mono);
-      return stereo;
-    }
-    function floatTo16BitPCM(float32) {
-      const out = new Int16Array(float32.length);
-      for (let i = 0; i < float32.length; i++) {
-        let s = Math.max(-1, Math.min(1, float32[i]));
-        out[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-      }
-      return out;
-    }
-    function interleaveLR(left, right) {
-      const len = left.length + right.length;
-      const out = new Float32Array(len);
-      let i = 0, j = 0;
-      while (i < left.length && i < right.length) {
-        out[j++] = left[i];
-        out[j++] = right[i];
-        i++;
-      }
-      return out;
-    }
-    function audioBufferToWavBlob(buffer) {
-      // Eksport 16-bit PCM WAV
-      const numCh = Math.min(2, buffer.numberOfChannels);
-      const sr = buffer.sampleRate;
-      const L = buffer.getChannelData(0);
-      const R = numCh > 1 ? buffer.getChannelData(1) : buffer.getChannelData(0);
+  }
+  return out;
+}
 
-      const interleaved = interleaveLR(L, R);
-      const pcm16 = floatTo16BitPCM(interleaved);
-      const byteRate = sr * numCh * 2;
+btnMakeMix.addEventListener('click',async()=>{
+  const mix = await makeMix();
+  downloadAudioBuffer(mix,'mix.wav');
+});
 
-      const wav = new ArrayBuffer(44 + pcm16.byteLength);
-      const view = new DataView(wav);
+btnPreviewMix.addEventListener('click',async()=>{
+  const mix = await makeMix();
+  const offline = audioCtx.createBufferSource();
+  offline.buffer = mix;
+  previewMix.src = URL.createObjectURL(await bufferToBlob(mix));
+  previewMix.hidden=false;
+});
 
-      function writeString(offset, str) { for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i)); }
-      let offset = 0;
-      writeString(offset, "RIFF"); offset += 4;
-      view.setUint32(offset, 36 + pcm16.byteLength, true); offset += 4;
-      writeString(offset, "WAVE"); offset += 4;
-
-      writeString(offset, "fmt "); offset += 4;
-      view.setUint32(offset, 16, true); offset += 4;              // PCM chunk size
-      view.setUint16(offset, 1, true); offset += 2;               // format = PCM
-      view.setUint16(offset, numCh, true); offset += 2;
-      view.setUint32(offset, sr, true); offset += 4;
-      view.setUint32(offset, byteRate, true); offset += 4;
-      view.setUint16(offset, numCh * 2, true); offset += 2;       // block align
-      view.setUint16(offset, 16, true); offset += 2;              // bits per sample
-
-      writeString(offset, "data"); offset += 4;
-      view.setUint32(offset, pcm16.byteLength, true); offset += 4;
-
-      new Int16Array(wav, 44).set(pcm16);
-
-      return new Blob([wav], { type: "audio/wav" });
-    }
-    function downloadBlob(blob, filename) {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url; a.download = filename;
-      document.body.appendChild(a); a.click();
-      a.remove(); URL.revokeObjectURL(url);
-    }
-    function normalizeBuffer(buf, targetPeak = 0.98) {
-      const ch0 = buf.getChannelData(0);
-      const ch1 = buf.getChannelData(1);
-      let peak = 0;
-      for (let i = 0; i < ch0.length; i++) {
-        peak = Math.max(peak, Math.abs(ch0[i]), Math.abs(ch1[i]));
-      }
-      if (peak > 0) {
-        const g = targetPeak / peak;
-        for (let i = 0; i < ch0.length; i++) { ch0[i] *= g; ch1[i] *= g; }
-      }
-      return buf;
-    }
-
-    // === SEPARACJA: Instrumental (center-cancel) ===
-    function makeInstrumental(buffer) {
-      buffer = ensureStereo(buffer);
-      const ctx = getAudioCtx();
-      const out = ctx.createBuffer(2, buffer.length, buffer.sampleRate);
-      const L = buffer.getChannelData(0);
-      const R = buffer.getChannelData(1);
-      const oL = out.getChannelData(0);
-      const oR = out.getChannelData(1);
-      for (let i = 0; i < buffer.length; i++) {
-        const mid = (L[i] + R[i]) * 0.5;       // to co pośrodku (często wokal)
-        oL[i] = L[i] - mid;                    // zostawiamy boki (accompaniment)
-        oR[i] = R[i] - mid;
-      }
-      return out;
-    }
-
-    // === SEPARACJA: Vocals (mid + filtr pasmowy w offline context) ===
-    async function makeVocals(buffer) {
-      buffer = ensureStereo(buffer);
-      const ctx = getAudioCtx();
-      // 1) Ekstrakcja kanału MID
-      const mid = ctx.createBuffer(1, buffer.length, buffer.sampleRate);
-      const L = buffer.getChannelData(0);
-      const R = buffer.getChannelData(1);
-      const m = mid.getChannelData(0);
-      for (let i = 0; i < buffer.length; i++) m[i] = (L[i] + R[i]) * 0.5;
-
-      // 2) Band-pass ~ głos (120–8000 Hz) + lekka kompresja w OfflineAudioContext
-      const offline = new OfflineAudioContext(2, buffer.length, buffer.sampleRate);
-      const src = offline.createBufferSource();
-      const stereoMid = offline.createBuffer(2, buffer.length, buffer.sampleRate);
-      stereoMid.getChannelData(0).set(m);
-      stereoMid.getChannelData(1).set(m);
-      src.buffer = stereoMid;
-
-      const hp = offline.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 120;
-      const lp = offline.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 8000;
-      const comp = offline.createDynamicsCompressor();
-      comp.threshold.setValueAtTime(-16, 0);
-      comp.knee.setValueAtTime(24, 0);
-      comp.ratio.setValueAtTime(2.5, 0);
-      comp.attack.setValueAtTime(0.003, 0);
-      comp.release.setValueAtTime(0.250, 0);
-
-      src.connect(hp).connect(lp).connect(comp).connect(offline.destination);
-      src.start();
-      let rendered = await offline.startRendering();
-
-      // 3) Normalizacja
-      rendered = normalizeBuffer(rendered, 0.98);
-      return rendered;
-    }
-
-    // === MIX: łączenie dwóch plików (wokal + beat) ===
-    async function makeMix(vocalBuf, beatBuf, gainV = 1.0, gainB = 1.0, offsetVms = 0, offsetBms = 0) {
-      // Resampling do TARGET_SR
-      vocalBuf = await resampleBufferToSR(ensureStereo(vocalBuf), TARGET_SR);
-      beatBuf  = await resampleBufferToSR(ensureStereo(beatBuf),  TARGET_SR);
-
-      const sr = TARGET_SR;
-      const offsetV = Math.max(0, Math.round(offsetVms/1000 * sr));
-      const offsetB = Math.max(0, Math.round(offsetBms/1000 * sr));
-
-      const len = Math.max(vocalBuf.length + offsetV, beatBuf.length + offsetB);
-      const ctx = getAudioCtx();
-      const out = ctx.createBuffer(2, len, sr);
-      const oL = out.getChannelData(0);
-      const oR = out.getChannelData(1);
-
-      const vL = vocalBuf.getChannelData(0), vR = vocalBuf.getChannelData(1);
-      const bL = beatBuf.getChannelData(0),  bR = beatBuf.getChannelData(1);
-
-      // Sumowanie z wzmocnieniami
-      for (let i = 0; i < vL.length; i++) {
-        const j = i + offsetV;
-        if (j < len) { oL[j] += vL[i] * gainV; oR[j] += vR[i] * gainV; }
-      }
-      for (let i = 0; i < bL.length; i++) {
-        const j = i + offsetB;
-        if (j < len) { oL[j] += bL[i] * gainB; oR[j] += bR[i] * gainB; }
-      }
-
-      // Soft clip / limiter prosty
-      for (let i = 0; i < len; i++) {
-        oL[i] = Math.tanh(oL[i]);
-        oR[i] = Math.tanh(oR[i]);
-      }
-      return normalizeBuffer(out, 0.98);
-    }
-
-    // === UI / LOGIKA ===
-    const el = (id) => document.getElementById(id);
-    const songFile = el('songFile');
-    const btnInstr = el('btnInstrumental');
-    const btnVoc   = el('btnVocals');
-    const statusMain = el('statusMain');
-    const previewOriginal = el('previewOriginal');
-
-    const vocalFile = el('vocalFile');
-    const beatFile = el('beatFile');
-    const btnMakeMix = el('btnMakeMix');
-    const btnPreviewMix = el('btnPreviewMix');
-    const statusMix = el('statusMix');
-    const previewMix = el('previewMix');
-    const gainVocal = el('gainVocal');
-    const gainBeat = el('gainBeat');
-    const gainVocalVal = el('gainVocalVal');
-    const gainBeatVal = el('gainBeatVal');
-    const offsetVocalMs = el('offsetVocalMs');
-    const offsetBeatMs = el('offsetBeatMs');
-
-    let loadedSongBuf = null;
-    let loadedVocalBuf = null;
-    let loadedBeatBuf = null;
-
-    function updateGainsUI(){
-      gainVocalVal.textContent = (+gainVocal.value).toFixed(2);
-      gainBeatVal.textContent  = (+gainBeat.value).toFixed(2);
-    }
-    gainVocal.addEventListener('input', updateGainsUI);
-    gainBeat.addEventListener('input', updateGainsUI);
-    updateGainsUI();
-
-    songFile.addEventListener('change', async () => {
-      if (!songFile.files[0]) return;
-      statusMain.textContent = 'Dekodowanie...';
-      const buf = await decodeFileToAudioBuffer(songFile.files[0]);
-      loadedSongBuf = buf;
-      btnInstr.disabled = false;
-      btnVoc.disabled = false;
-      statusMain.textContent = `Załadowano: ${songFile.files[0].name} • ${buf.numberOfChannels}ch • ${buf.sampleRate} Hz • ${(buf.duration).toFixed(1)} s`;
-      // podgląd
-      const url = URL.createObjectURL(songFile.files[0]);
-      previewOriginal.src = url;
-      previewOriginal.hidden = false;
-      try { await getAudioCtx().resume(); } catch {}
-    });
-
-    btnInstr.addEventListener('click', async () => {
-      if (!loadedSongBuf) return;
-      statusMain.textContent = 'Przetwarzanie: usuwanie wokalu (center-cancel)...';
-      const inst = makeInstrumental(loadedSongBuf);
-      const inst441 = await resampleBufferToSR(inst, TARGET_SR);
-      const blob = audioBufferToWavBlob(inst441);
-      downloadBlob(blob, 'instrumental.wav');
-      statusMain.textContent = 'Gotowe! Pobrano instrumental.wav';
-    });
-
-    btnVoc.addEventListener('click', async () => {
-      if (!loadedSongBuf) return;
-      statusMain.textContent = 'Przetwarzanie: wydzielanie wokalu...';
-      const voc = await makeVocals(loadedSongBuf);
-      const voc441 = await resampleBufferToSR(voc, TARGET_SR);
-      const blob = audioBufferToWavBlob(voc441);
-      downloadBlob(blob, 'vocals.wav');
-      statusMain.textContent = 'Gotowe! Pobrano vocals.wav';
-    });
-
-    function checkMixAvailability() {
-      btnMakeMix.disabled = !(loadedVocalBuf && loadedBeatBuf);
-      btnPreviewMix.disabled = !(loadedVocalBuf && loadedBeatBuf);
-      statusMix.textContent = (loadedVocalBuf && loadedBeatBuf)
-        ? 'Pliki gotowe do miksu.'
-        : 'Wgraj oba pliki (wokal i beat).';
-    }
-
-    vocalFile.addEventListener('change', async () => {
-      if (!vocalFile.files[0]) return;
-      statusMix.textContent = 'Dekodowanie wokalu...';
-      loadedVocalBuf = await decodeFileToAudioBuffer(vocalFile.files[0]);
-      checkMixAvailability();
-    });
-    beatFile.addEventListener('change', async () => {
-      if (!beatFile.files[0]) return;
-      statusMix.textContent = 'Dekodowanie beatu...';
-      loadedBeatBuf = await decodeFileToAudioBuffer(beatFile.files[0]);
-      checkMixAvailability();
-    });
-
-    btnMakeMix.addEventListener('click', async () => {
-      statusMix.textContent = 'Render miksu do WAV...';
-      const mix = await makeMix(
-        loadedVocalBuf, loadedBeatBuf,
-        parseFloat(gainVocal.value), parseFloat(gainBeat.value),
-        parseFloat(offsetVocalMs.value||0), parseFloat(offsetBeatMs.value||0)
-      );
-      const res = await resampleBufferToSR(mix, TARGET_SR);
-      const blob = audioBufferToWavBlob(res);
-      downloadBlob(blob, 'mix.wav');
-      statusMix.textContent = 'Gotowe! Pobrano mix.wav';
-    });
-
-    btnPreviewMix.addEventListener('click', async () => {
-      statusMix.textContent = 'Przygotowanie podglądu miksu...';
-      const mix = await makeMix(
-        loadedVocalBuf, loadedBeatBuf,
-        parseFloat(gainVocal.value), parseFloat(gainBeat.value),
-        parseFloat(offsetVocalMs.value||0), parseFloat(offsetBeatMs.value||0)
-      );
-      const res = await resampleBufferToSR(mix, TARGET_SR);
-      const blob = audioBufferToWavBlob(res);
-      const url = URL.createObjectURL(blob);
-      previewMix.src = url;
-      previewMix.hidden = false;
-      statusMix.textContent = 'Podgląd gotowy.';
-      try { await getAudioCtx().resume(); } catch {}
-    });
-
-    // iOS/Chrome Autoplay unlock
-    window.addEventListener('click', () => { try { getAudioCtx().resume(); } catch {} }, { once:true });
-  </script>
+async function bufferToBlob(buffer){const numCh = buffer.numberOfChannels; const sr=buffer.sampleRate; const L=buffer.getChannelData(0); const R=numCh>1?buffer.getChannelData(1):L; const interleave = new Float32Array(L.length*2); for(let i=0;i<L.length;i++){interleave[i*2]=L[i];interleave[i*2+1]=R[i];} const pcm16=new Int16Array(interleave.length); for(let i=0;i<interleave.length;i++){let s=Math.max(-1,Math.min(1,interleave[i])); pcm16[i]=s<0?s*0x8000:s*0x7FFF;} const byteRate=sr*2*numCh; const wav=new ArrayBuffer(44+pcm16.byteLength); const view=new DataView(wav); let offset=0; function wS(o,s){for(let i=0;i<s.length;i++)view.setUint8(o+i,s.charCodeAt(i));} wS(offset,"RIFF"); offset+=4; view.setUint32(offset,36+pcm16.byteLength,true); offset+=4; wS(offset,"WAVE"); offset+=4; wS(offset,"fmt "); offset+=4; view.setUint32(offset,16,true); offset+=4; view.setUint16(offset,1,true); offset+=2; view.setUint16(offset,numCh,true); offset+=2; view.setUint32(offset,sr,true); offset+=4; view.setUint32(offset,byteRate,true); offset+=4; view.setUint16(offset,numCh*2,true); offset+=2; view.setUint16(offset,16,true); offset+=2; wS(offset,"data"); offset+=4; view.setUint32(offset,pcm16.byteLength,true); offset+=4; new Int16Array(wav,44).set(pcm16); return new Blob([wav],{type:"audio/wav"});}
+</script>
 </body>
 </html>
